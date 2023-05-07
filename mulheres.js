@@ -1,92 +1,89 @@
 const express = require("express") //iniciando o express
 const router = express.Router() //configurando a primeira parte da rota
-const { v4: uuidv4 } = require("uuid")
+const cors = require('cors')//trazendo o pacote cors que permite consumir esse API no Front-End 
+
+//Ligando ao arquivo banco de dados
+const conectaBancoDeDados = require('./bancoDeDados')
+conectaBancoDeDados() //Chamando a função que conecta o banco de dados
+
+const Mulher = require('./mulherModel')
 
 const app = express() //iniciando o app
 app.use(express.json())
+app.use(cors())
 
 const porta = 3333 //criando a porta
 
-//criando lista inicial de mulheres
-const mulheres = [
-    {
-        id: '1',
-        nome: "Simara Conceição",
-        imagem: "http://teste.png",
-        minibio: "Desenvolvedora e Instrutora"
-    },
-    {
-        id: '2',
-        nome: "Iana Chan",
-        imagem: "http://teste.png",
-        minibio: "Fundadora da Programaria"
-    },
-    {
-        id: '3',
-        nome: "Nina da Hora",
-        imagem: "http://teste.png",
-        minibio: "Hacker antirracista"
-    },
-]
-
 //GET
-function mostrarMulheres(resquest, response) {
-    response.json(mulheres)
+async function mostrarMulheres(resquest, response) {
+    try {
+        const mulheresVindasDoBancoDeDados = await Mulher.find()
+
+        response.json(mulheresVindasDoBancoDeDados)
+    } catch (erro) {
+        console.log(erro)
+    }
 }
 
 //POST
-function criarMulher(resquest, response) {
-    const novaMulher = {
-        id: uuidv4(),
+async function criarMulher(resquest, response) {
+    const novaMulher = new Mulher({
         nome: resquest.body.nome,
         imagem: resquest.body.imagem,
+        citacao: resquest.body.citacao,
         minibio: resquest.body.minibio,
+    })
+
+    try {
+        const mulherCriada = await novaMulher.save()
+        response.status(201).json(mulherCriada)
+    } catch (erro) {
+        console.log(erro)
     }
+}
 
-    mulheres.push(novaMulher)
+//PATCH
+async function corrigirMulher(resquest, response) {
+    try {
+        const mulherEncontrada = await Mulher.findById(resquest.params.id)
 
-    response.json(mulheres)
+        if (resquest.body.nome) {
+            mulherEncontrada.nome = resquest.body.nome
+        }
+
+        if (resquest.body.imagem) {
+            mulherEncontrada.imagem = resquest.body.imagem
+        }
+
+        if (resquest.body.minibio) {
+            mulherEncontrada.minibio = resquest.body.minibio
+        }
+
+        if (resquest.body.citacao) {
+            mulherEncontrada.citacao = resquest.body.citacao
+        }
+
+        const mulherAtualizadaNoBancoDeDados = await mulherEncontrada.save()
+        response.json(mulherAtualizadaNoBancoDeDados)
+    } catch (erro) {
+        console.log(erro)
+    }
+}
+
+//DELETE
+async function deletaMulher(resquest, response) {
+    try {
+        await Mulher.findByIdAndDelete(resquest.params.id)
+        
+        response.json({messagem: 'Mulher deletada com sucesso!'})
+    } catch (error) {
+        console.log(error)
+    }
 }
 
 //PORTA
 function mostrarPorta() {
     console.log(`Servidor criado e rodando na porta ${porta}`)
-}
-
-//PATCH
-function corrigirMulher(resquest, response) {
-    function encontrarMulher(mulher) {
-        if (mulher.id === resquest.params.id) {
-            return mulher
-        }
-    }
-
-    const mulherEncontrada = mulheres.find(encontrarMulher)
-
-    if (resquest.body.nome) {
-        mulherEncontrada.nome = resquest.body.nome
-    }
-    if (resquest.body.imagem) {
-        mulherEncontrada.imagem = resquest.body.imagem
-    }
-    if (resquest.body.minibio) {
-        mulherEncontrada.minibio = resquest.body.minibio
-    }
-
-    response.json(mulheres)
-}
-
-//DELETE
-function deletaMulher(resquest, response) {
-    function todasMenosEla(mulher) {
-        if (mulher.id !== resquest.params.id) {
-            return mulher
-        }
-    }
-
-    const mulheresQueFicam = mulheres.filter(todasMenosEla)
-
-    response.json(mulheresQueFicam)
 }
 
 app.use(router.get('/mulheres', mostrarMulheres)) //configura rota GET /mulheres
